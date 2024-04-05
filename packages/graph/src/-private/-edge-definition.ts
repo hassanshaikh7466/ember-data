@@ -3,7 +3,7 @@ import { assert } from '@ember/debug';
 import { DEBUG } from '@ember-data/env';
 import type Store from '@ember-data/store';
 import type { StableRecordIdentifier } from '@warp-drive/core-types';
-import type { RelationshipSchema } from '@warp-drive/core-types/schema';
+import type { CollectionSchema, RelationshipSchema } from '@warp-drive/core-types/schema';
 
 import { expandingGet, expandingSet, getStore } from './-utils';
 import { assertInheritedSchema } from './debug/assert-polymorphic-type';
@@ -39,6 +39,7 @@ export type EdgeCache = Record<string, Record<string, EdgeDefinition | null>>;
  *   isAsync: false,
  *   isImplicit: false,
  *   isCollection: true,
+ *   isPaginated: false,
  *   isPolymorphic: false,
  *   inverseKind: 'belongsTo',
  *   inverseKey: 'owner',
@@ -46,6 +47,7 @@ export type EdgeCache = Record<string, Record<string, EdgeDefinition | null>>;
  *   inverseIsAsync: false,
  *   inverseIsImplicit: false,
  *   inverseIsCollection: false,
+ *   inverseIsPaginated: false,
  *   inverseIsPolymorphic: false,
  * }
  * ```
@@ -60,6 +62,7 @@ export type EdgeCache = Record<string, Record<string, EdgeDefinition | null>>;
  *   isAsync: false,
  *   isImplicit: false,
  *   isCollection: false,
+ *   isPaginated: false,
  *   isPolymorphic: false,
  *   inverseKind: 'hasMany',
  *   inverseKey: 'pets',
@@ -67,6 +70,7 @@ export type EdgeCache = Record<string, Record<string, EdgeDefinition | null>>;
  *   inverseIsAsync: false,
  *   inverseIsImplicit: false,
  *   inverseIsCollection: true,
+ *   inverseIsPaginated: false,
  *   inverseIsPolymorphic: false,
  * }
  * ```
@@ -76,7 +80,7 @@ export type EdgeCache = Record<string, Record<string, EdgeDefinition | null>>;
  * @internal
  */
 export interface UpgradedMeta {
-  kind: 'hasMany' | 'belongsTo' | 'implicit';
+  kind: 'hasMany' | 'belongsTo' | 'implicit' | 'collection';
   /**
    * The field name on `this` record
    *
@@ -92,10 +96,11 @@ export interface UpgradedMeta {
   isAsync: boolean;
   isImplicit: boolean;
   isCollection: boolean;
+  isPaginated: boolean;
   isPolymorphic: boolean;
   resetOnRemoteUpdate: boolean;
 
-  inverseKind: 'hasMany' | 'belongsTo' | 'implicit';
+  inverseKind: 'hasMany' | 'belongsTo' | 'implicit' | 'collection';
   /**
    * The field name on the opposing record
    * @internal
@@ -109,6 +114,7 @@ export interface UpgradedMeta {
   inverseIsAsync: boolean;
   inverseIsImplicit: boolean;
   inverseIsCollection: boolean;
+  inverseIsPaginated: boolean;
   inverseIsPolymorphic: boolean;
 }
 
@@ -163,6 +169,7 @@ function syncMeta(definition: UpgradedMeta, inverseDefinition: UpgradedMeta) {
   definition.inverseType = inverseDefinition.type;
   definition.inverseIsAsync = inverseDefinition.isAsync;
   definition.inverseIsCollection = inverseDefinition.isCollection;
+  definition.inverseIsPaginated = inverseDefinition.isPaginated;
   definition.inverseIsPolymorphic = inverseDefinition.isPolymorphic;
   definition.inverseIsImplicit = inverseDefinition.isImplicit;
   const resetOnRemoteUpdate =
@@ -171,25 +178,34 @@ function syncMeta(definition: UpgradedMeta, inverseDefinition: UpgradedMeta) {
   inverseDefinition.resetOnRemoteUpdate = resetOnRemoteUpdate;
 }
 
+function isCollectionKind(meta: RelationshipSchema): meta is CollectionSchema {
+  return meta.kind === 'collection';
+}
+
 function upgradeMeta(meta: RelationshipSchema): UpgradedMeta {
   const niceMeta: UpgradedMeta = {} as UpgradedMeta;
   const options = meta.options;
   niceMeta.kind = meta.kind;
   niceMeta.key = meta.name;
   niceMeta.type = meta.type;
-  assert(`Expected relationship definition to specify async`, typeof options?.async === 'boolean');
-  niceMeta.isAsync = options.async;
+  assert(
+    `Expected relationship definition to specify async`,
+    isCollectionKind(meta) || typeof meta.options?.async === 'boolean'
+  );
+  niceMeta.isAsync = isCollectionKind(meta) ? true : meta.options.async;
   niceMeta.isImplicit = false;
-  niceMeta.isCollection = meta.kind === 'hasMany';
-  niceMeta.isPolymorphic = options && !!options.polymorphic;
+  niceMeta.isCollection = meta.kind === 'hasMany' || meta.kind === 'collection';
+  niceMeta.isPolymorphic = Boolean(options && options.polymorphic);
+  niceMeta.isPaginated = meta.kind === 'collection';
 
   niceMeta.inverseKey = (options && options.inverse) || STR_LATER;
   niceMeta.inverseType = STR_LATER;
   niceMeta.inverseIsAsync = BOOL_LATER;
   niceMeta.inverseIsImplicit = (options && options.inverse === null) || BOOL_LATER;
   niceMeta.inverseIsCollection = BOOL_LATER;
+  niceMeta.inverseIsPaginated = BOOL_LATER;
 
-  niceMeta.resetOnRemoteUpdate = options && options.resetOnRemoteUpdate === false ? false : true;
+  niceMeta.resetOnRemoteUpdate = isCollectionKind(meta) || meta.options?.resetOnRemoteUpdate === false ? false : true;
 
   return niceMeta;
 }
@@ -405,6 +421,7 @@ export function upgradeDefinition(
         isAsync: false, // this must be updated when we find the first belongsTo or hasMany definition that matches
         isImplicit: false,
         isCollection: false, // this must be updated when we find the first belongsTo or hasMany definition that matches
+        isPaginated: false,
         isPolymorphic: false,
       } as UpgradedMeta; // the rest of the fields are populated by syncMeta
 
@@ -438,6 +455,7 @@ export function upgradeDefinition(
       isAsync: false,
       isImplicit: true,
       isCollection: true, // with implicits any number of records could point at us
+      isPaginated: false,
       isPolymorphic: false,
     } as UpgradedMeta; // the rest of the fields are populated by syncMeta
 
