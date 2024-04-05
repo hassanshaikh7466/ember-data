@@ -37,16 +37,18 @@ if (DEBUG) {
     if (definition.inverseKind !== meta.kind) {
       errors.set('type', ` <---- should be '${definition.inverseKind}'`);
     }
-    if (definition.inverseIsAsync !== meta.options.async) {
-      errors.set('async', ` <---- should be ${definition.inverseIsAsync}`);
+    if (definition.kind !== 'collection') {
+      if (definition.inverseIsAsync !== meta.options?.async) {
+        errors.set('async', ` <---- should be ${definition.inverseIsAsync}`);
+      }
     }
-    if (definition.inverseIsPolymorphic && definition.inverseIsPolymorphic !== meta.options.polymorphic) {
+    if (definition.inverseIsPolymorphic && definition.inverseIsPolymorphic !== meta.options?.polymorphic) {
       errors.set('polymorphic', ` <---- should be ${definition.inverseIsPolymorphic}`);
     }
-    if (definition.key !== meta.options.inverse) {
+    if (definition.key !== meta.options?.inverse) {
       errors.set('inverse', ` <---- should be '${definition.key}'`);
     }
-    if (definition.type !== meta.options.as) {
+    if (definition.type !== meta.options?.as) {
       errors.set('as', ` <---- should be '${definition.type}'`);
     }
 
@@ -57,11 +59,11 @@ if (DEBUG) {
     name: string;
     type: string;
     kind: string;
-    options: {
+    options?: {
       as?: string;
-      async: boolean;
+      async?: boolean;
       polymorphic?: boolean;
-      inverse: string | null;
+      inverse?: string | null;
     };
   };
   type RelationshipSchemaError = 'name' | 'type' | 'kind' | 'as' | 'async' | 'polymorphic' | 'inverse';
@@ -81,6 +83,19 @@ if (DEBUG) {
   }
 
   function printSchema(config: PrintConfig, errors?: Map<RelationshipSchemaError, string>) {
+    const optionLines = [
+      config.options?.as ? `      as: '${config.options.as}',${errors?.get('as') || ''}` : '',
+      config.kind !== 'collection' ? `      async: ${config.options?.async},${errors?.get('async') || ''}` : '',
+      config.options?.polymorphic || errors?.get('polymorphic')
+        ? `      polymorphic: ${config.options?.polymorphic},${errors?.get('polymorphic') || ''}`
+        : '',
+      config.kind !== 'collection' || errors?.get('inverse')
+        ? `      inverse: '${config.options?.inverse}'${errors?.get('inverse') || ''}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
     return `
 
 \`\`\`
@@ -90,10 +105,7 @@ if (DEBUG) {
     type: '${config.type}',${errors?.get('type') || ''}
     kind: '${config.kind}',${errors?.get('kind') || ''}
     options: {
-      as: '${config.options.as}',${errors?.get('as') || ''}
-      async: ${config.options.async},${errors?.get('async') || ''}
-      polymorphic: ${config.options.polymorphic},${errors?.get('polymorphic') || ''}
-      inverse: '${config.options.inverse}'${errors?.get('inverse') || ''}
+${optionLines}
     }
   }
 }
@@ -135,6 +147,7 @@ if (DEBUG) {
       isAsync: definition.inverseIsAsync,
       isPolymorphic: true,
       isCollection: definition.inverseIsCollection,
+      isPaginated: definition.inverseIsPaginated,
       isImplicit: definition.inverseIsImplicit,
       inverseKey: definition.key,
       inverseType: definition.type,
@@ -143,6 +156,7 @@ if (DEBUG) {
       inverseIsPolymorphic: definition.isPolymorphic,
       inverseIsImplicit: definition.isImplicit,
       inverseIsCollection: definition.isCollection,
+      inverseIsPaginated: definition.isPaginated,
       resetOnRemoteUpdate: definition.resetOnRemoteUpdate,
     };
   }
@@ -225,7 +239,7 @@ if (DEBUG) {
       );
       assert(
         `You should not specify both options.as and options.inverse as null on ${addedIdentifier.type}.${parentDefinition.inverseKey}, as if there is no inverse field there is no abstract type to conform to. You may have intended for this relationship to be polymorphic, or you may have mistakenly set inverse to null.`,
-        !(meta.options.inverse === null && meta?.options.as?.length)
+        !(meta.options?.inverse === null && meta.options.as?.length)
       );
       let errors = validateSchema(parentDefinition, meta);
       assert(
@@ -247,7 +261,7 @@ if (DEBUG) {
       let meta = store.getSchemaDefinitionService().relationshipsDefinitionFor(addedIdentifier)[
         parentDefinition.inverseKey
       ];
-      if (meta?.options.as === parentDefinition.type) {
+      if (meta?.options?.as === parentDefinition.type) {
         // inverse is likely polymorphic but missing the polymorphic flag
         let meta = store
           .getSchemaDefinitionService()

@@ -1,7 +1,7 @@
 import type { TypedRecordInstance, TypeFromInstance } from '@warp-drive/core-types/record';
 import type { AttributeSchema, RelationshipSchema } from '@warp-drive/core-types/schema';
 
-import type { KeyOrString, ModelSchema } from '../../-types/q/ds-model';
+import type { FieldKind, KeyOrString, ModelSchema } from '../../-types/q/ds-model';
 import type Store from '../store-service';
 
 // if modelFor turns out to be a bottleneck we should replace with a Map
@@ -46,12 +46,12 @@ export default class ShimModelClass<T = unknown> implements ModelSchema<T> {
     this.modelName = modelName;
   }
 
-  get fields(): Map<KeyOrString<T>, 'attribute' | 'belongsTo' | 'hasMany'> {
+  get fields(): Map<KeyOrString<T>, FieldKind> {
     const attrs = this.__store.getSchemaDefinitionService().attributesDefinitionFor({ type: this.modelName });
     const relationships = this.__store
       .getSchemaDefinitionService()
       .relationshipsDefinitionFor({ type: this.modelName });
-    const fields = new Map<KeyOrString<T>, 'attribute' | 'belongsTo' | 'hasMany'>();
+    const fields = new Map<KeyOrString<T>, FieldKind>();
     Object.keys(attrs).forEach((key) => fields.set(key as KeyOrString<T>, 'attribute'));
     Object.keys(relationships).forEach((key) => fields.set(key as KeyOrString<T>, relationships[key].kind));
     return fields;

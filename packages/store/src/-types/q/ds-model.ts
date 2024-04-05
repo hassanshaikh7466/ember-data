@@ -2,10 +2,11 @@ import type { TypedRecordInstance, TypeFromInstance } from '@warp-drive/core-typ
 import type { AttributeSchema, RelationshipSchema } from '@warp-drive/core-types/schema';
 
 export type KeyOrString<T> = keyof T & string extends never ? string : keyof T & string;
+export type FieldKind = 'attribute' | 'belongsTo' | 'hasMany' | 'collection';
 
 export interface ModelSchema<T = unknown> {
   modelName: T extends TypedRecordInstance ? TypeFromInstance<T> : string;
-  fields: Map<KeyOrString<T>, 'attribute' | 'belongsTo' | 'hasMany'>;
+  fields: Map<KeyOrString<T>, FieldKind>;
   attributes: Map<KeyOrString<T>, AttributeSchema>;
   relationshipsByName: Map<KeyOrString<T>, RelationshipSchema>;
   eachAttribute<K extends KeyOrString<T>>(
