@@ -64,13 +64,13 @@
     "turbo": "^1.13.3"
   },
   "engines": {
-    "node": ">= 22.1.0",
+    "node": ">= 22.2.0",
     "yarn": "use pnpm",
     "npm": "use pnpm",
     "pnpm": "8.15.8"
   },
   "volta": {
-    "node": "22.1.0",
+    "node": "22.2.0",
     "pnpm": "8.15.8"
   },
   "packageManager": "pnpm@8.15.8",
