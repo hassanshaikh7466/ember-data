@@ -70,7 +70,8 @@ function notifyAttribute(store: Store, identifier: StableRecordIdentifier, key: 
   const cache = DEPRECATE_V1_RECORD_DATA ? peekCache(record)! : store.cache;
 
   if (currentValue instanceof Date && cache.getAttr(identifier, key) instanceof Date) {
-    if (currentValue.toISOString() !== cache.getAttr(identifier, key).toISOString()) {
+    const cachedValue = cache.getAttr(identifier, key) as Date;
+    if (currentValue.toISOString() !== cachedValue.toISOString()) {
       record.notifyPropertyChange(key);
     }
   }
