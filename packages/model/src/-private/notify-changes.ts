@@ -68,6 +68,8 @@ function notifyRelationship(identifier: StableRecordIdentifier, key: string, rec
 function notifyAttribute(store: Store, identifier: StableRecordIdentifier, key: string, record: Model) {
   let currentValue = cacheFor(record, key);
   const cache = DEPRECATE_V1_RECORD_DATA ? peekCache(record)! : store.cache;
+
+  console.log("values", currentValue, cache.getAttr(identifier, key))
   if (currentValue !== cache.getAttr(identifier, key)) {
     record.notifyPropertyChange(key);
   }
